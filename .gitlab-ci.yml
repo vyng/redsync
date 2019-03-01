@@ -1,7 +1,7 @@
 before_script:
-    - mkdir -p $GOPATH/src/github.com/redsync
-    - ln -s $CI_PROJECT_DIR $GOPATH/src/github.com/redsync/redsync
-    - cd $GOPATH/src/github.com/redsync/redsync
+    - mkdir -p $GOPATH/src/github.com/vyng
+    - ln -s $CI_PROJECT_DIR $GOPATH/src/github.com/vyng/redsync
+    - cd $GOPATH/src/github.com/vyng/redsync
     - apt-get update
     - apt-get -y install redis-server
 
@@ -9,15 +9,15 @@ stages:
     - build
     - test
 
-build-go-1.5:
-    image: golang:1.5
+build-go-1.12:
+    image: golang:1.12
     stage: build
     script:
         - go get -v
         - go build -v
 
-test-go-1.5:
-    image: golang:1.5
+test-go-1.12:
+    image: golang:1.12
     stage: test
     script:
         - go get -v -t
