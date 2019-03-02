@@ -1,6 +1,6 @@
 # Redsync
 
-[![Build Status](https://travis-ci.org/go-redsync/redsync.svg?branch=master)](https://travis-ci.org/go-redsync/redsync)
+[![Build Status](https://travis-ci.org/vyng/redsync.svg?branch=master)](https://travis-ci.org/vyng/redsync)
 
 Redsync provides a Redis-based distributed mutual exclusion lock implementation for Go as described in [this post](http://redis.io/topics/distlock). A reference library (by [antirez](https://github.com/antirez)) for Ruby is available at [github.com/antirez/redlock-rb](https://github.com/antirez/redlock-rb).
 
