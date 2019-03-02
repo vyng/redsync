@@ -3,7 +3,6 @@ package redsync
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"sync"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -27,21 +26,32 @@ type Mutex struct {
 	value string
 	until time.Time
 
-	nodem sync.Mutex
-
 	pools []Pool
 }
 
-// Lock locks m. In case it returns an error on failure, you may retry to acquire the lock by calling this method again.
-func (m *Mutex) Lock() error {
-	m.nodem.Lock()
-	defer m.nodem.Unlock()
+func genValue() (string, error) {
+	b := make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
+}
 
-	value, err := m.genValue()
+// Lock locks m with a specific value.
+// In case it returns an error on failure, you may retry to acquire the lock by calling this method again.
+func (m *Mutex) Lock() error {
+	value, err := genValue()
 	if err != nil {
 		return err
 	}
 
+	return m.LockWithValue(value)
+}
+
+// LockWithValue locks m with a specific value.
+// In case it returns an error on failure, you may retry to acquire the lock by calling this method again.
+func (m *Mutex) LockWithValue(value string) error {
 	for i := 0; i < m.tries; i++ {
 		if i != 0 {
 			time.Sleep(m.delayFunc(i))
@@ -49,17 +59,21 @@ func (m *Mutex) Lock() error {
 
 		start := time.Now()
 
-		n := m.actOnPoolsAsync(func(pool Pool) bool {
+		n := m.actOnPoolsAsync(func(pool Pool, m *Mutex) bool {
 			return m.acquire(pool, value)
 		})
 
-		until := time.Now().Add(m.expiry - time.Now().Sub(start) - time.Duration(int64(float64(m.expiry)*m.factor)) + 2*time.Millisecond)
-		if n >= m.quorum && time.Now().Before(until) {
+		end := time.Now()
+		drift := time.Duration(int64(float64(m.expiry) * m.factor)) + 2
+		validTime := m.expiry - end.Sub(start) - drift
+
+		if n >= m.quorum && validTime > 0 {
 			m.value = value
-			m.until = until
+			m.until = end.Add(validTime)
 			return nil
 		}
-		m.actOnPoolsAsync(func(pool Pool) bool {
+
+		m.actOnPoolsAsync(func(pool Pool, m *Mutex) bool {
 			return m.release(pool, value)
 		})
 	}
@@ -69,39 +83,24 @@ func (m *Mutex) Lock() error {
 
 // Unlock unlocks m and returns the status of unlock.
 func (m *Mutex) Unlock() bool {
-	m.nodem.Lock()
-	defer m.nodem.Unlock()
-
-	n := m.actOnPoolsAsync(func(pool Pool) bool {
+	return m.actOnPoolsAsync(func(pool Pool, m *Mutex) bool {
 		return m.release(pool, m.value)
-	})
-	return n >= m.quorum
+	}) > m.quorum
 }
 
 // Extend resets the mutex's expiry and returns the status of expiry extension.
 func (m *Mutex) Extend() bool {
-	m.nodem.Lock()
-	defer m.nodem.Unlock()
-
-	n := m.actOnPoolsAsync(func(pool Pool) bool {
-		return m.touch(pool, m.value, int(m.expiry/time.Millisecond))
-	})
-	return n >= m.quorum
-}
-
-func (m *Mutex) genValue() (string, error) {
-	b := make([]byte, 32)
-	_, err := rand.Read(b)
-	if err != nil {
-		return "", err
-	}
-	return base64.StdEncoding.EncodeToString(b), nil
+	return m.actOnPoolsAsync(func(pool Pool, m *Mutex) bool {
+		return m.touch(pool, m.value, int64(m.expiry / time.Millisecond))
+	}) >= m.quorum
 }
 
 func (m *Mutex) acquire(pool Pool, value string) bool {
 	conn := pool.Get()
 	defer conn.Close()
-	reply, err := redis.String(conn.Do("SET", m.name, value, "NX", "PX", int(m.expiry/time.Millisecond)))
+	reply, err := redis.String(
+		conn.Do("SET", m.name, value, "NX", "PX", int64(m.expiry / time.Millisecond)),
+	)
 	return err == nil && reply == "OK"
 }
 
@@ -122,24 +121,24 @@ func (m *Mutex) release(pool Pool, value string) bool {
 
 var touchScript = redis.NewScript(1, `
 	if redis.call("GET", KEYS[1]) == ARGV[1] then
-		return redis.call("SET", KEYS[1], ARGV[1], "XX", "PX", ARGV[2])
+		return redis.call("pexpire", KEYS[1], ARGV[2])
 	else
-		return "ERR"
+		return 0
 	end
 `)
 
-func (m *Mutex) touch(pool Pool, value string, expiry int) bool {
+func (m *Mutex) touch(pool Pool, value string, expiry int64) bool {
 	conn := pool.Get()
 	defer conn.Close()
-	status, err := redis.String(touchScript.Do(conn, m.name, value, expiry))
-	return err == nil && status != "ERR"
+	status, err := touchScript.Do(conn, m.name, value, expiry)
+	return err == nil && status != 0
 }
 
-func (m *Mutex) actOnPoolsAsync(actFn func(Pool) bool) int {
-	ch := make(chan bool)
+func (m *Mutex) actOnPoolsAsync(actFn func(Pool, *Mutex) bool) int {
+	ch := make(chan bool, len(m.pools))
 	for _, pool := range m.pools {
 		go func(pool Pool) {
-			ch <- actFn(pool)
+			ch <- actFn(pool, m)
 		}(pool)
 	}
 	n := 0

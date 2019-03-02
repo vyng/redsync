@@ -14,15 +14,19 @@ func New(pools []Pool) *Redsync {
 	}
 }
 
+func defaultDelayFunc(tries int) time.Duration {
+	return 500 * time.Millisecond
+}
+
 // NewMutex returns a new distributed mutex with given name.
 func (r *Redsync) NewMutex(name string, options ...Option) *Mutex {
 	m := &Mutex{
 		name:      name,
-		expiry:    8 * time.Second,
+		expiry:    30 * time.Second,
 		tries:     32,
-		delayFunc: func(tries int) time.Duration { return 500 * time.Millisecond },
+		delayFunc: defaultDelayFunc,
 		factor:    0.01,
-		quorum:    len(r.pools)/2 + 1,
+		quorum:    len(r.pools) / 2 + 1,
 		pools:     r.pools,
 	}
 	for _, o := range options {

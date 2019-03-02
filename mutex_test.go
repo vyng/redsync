@@ -67,7 +67,7 @@ func TestMutexQuorum(t *testing.T) {
 
 		n := clogPools(pools, mask, mutex)
 
-		if n >= len(pools)/2+1 {
+		if n >= len(pools) / 2 + 1 {
 			err := mutex.Lock()
 			if err != nil {
 				t.Fatalf("Expected err == nil, got %q", err)
@@ -155,11 +155,11 @@ func newTestMutexes(pools []Pool, name string, n int) []*Mutex {
 	for i := 0; i < n; i++ {
 		mutexes = append(mutexes, &Mutex{
 			name:      name,
-			expiry:    8 * time.Second,
+			expiry:    30 * time.Second,
 			tries:     32,
 			delayFunc: func(tries int) time.Duration { return 500 * time.Millisecond },
 			factor:    0.01,
-			quorum:    len(pools)/2 + 1,
+			quorum:    len(pools) / 2 + 1,
 			pools:     pools,
 		})
 	}
