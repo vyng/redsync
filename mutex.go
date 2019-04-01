@@ -23,8 +23,9 @@ type Mutex struct {
 
 	quorum int
 
-	value string
-	until time.Time
+	genValueFunc func() (string, error)
+	value        string
+	until        time.Time
 
 	pools []Pool
 }
@@ -41,17 +42,11 @@ func genValue() (string, error) {
 // Lock locks m with a specific value.
 // In case it returns an error on failure, you may retry to acquire the lock by calling this method again.
 func (m *Mutex) Lock() error {
-	value, err := genValue()
+	value, err := m.genValueFunc()
 	if err != nil {
 		return err
 	}
 
-	return m.LockWithValue(value)
-}
-
-// LockWithValue locks m with a specific value.
-// In case it returns an error on failure, you may retry to acquire the lock by calling this method again.
-func (m *Mutex) LockWithValue(value string) error {
 	for i := 0; i < m.tries; i++ {
 		if i != 0 {
 			time.Sleep(m.delayFunc(i))
@@ -93,8 +88,8 @@ func (m *Mutex) Extend() bool {
 	return m.actOnPoolsAsync(func(pool Pool, m *Mutex) bool {
 		return m.touch(pool, m.value, int64(m.expiry / time.Millisecond))
 	}) >= m.quorum
-}
 
+}
 func (m *Mutex) acquire(pool Pool, value string) bool {
 	conn := pool.Get()
 	defer conn.Close()
