@@ -83,7 +83,7 @@ func TestMutexQuorum(t *testing.T) {
 }
 
 func newMockPools(n int) []Pool {
-	pools := []Pool{}
+	var pools []Pool
 	for _, server := range servers {
 		func(server *tempredis.Server) {
 			pools = append(pools, &redis.Pool{
@@ -106,7 +106,7 @@ func newMockPools(n int) []Pool {
 }
 
 func getPoolValues(pools []Pool, name string) []string {
-	values := []string{}
+	var values []string
 	for _, pool := range pools {
 		conn := pool.Get()
 		value, err := redis.String(conn.Do("GET", name))
@@ -120,7 +120,7 @@ func getPoolValues(pools []Pool, name string) []string {
 }
 
 func getPoolExpiries(pools []Pool, name string) []int {
-	expiries := []int{}
+	var expiries []int
 	for _, pool := range pools {
 		conn := pool.Get()
 		expiry, err := redis.Int(conn.Do("PTTL", name))
@@ -151,7 +151,7 @@ func clogPools(pools []Pool, mask int, mutex *Mutex) int {
 }
 
 func newTestMutexes(pools []Pool, name string, n int) []*Mutex {
-	mutexes := []*Mutex{}
+	var mutexes []*Mutex
 	for i := 0; i < n; i++ {
 		mutexes = append(mutexes, &Mutex{
 			name:      name,

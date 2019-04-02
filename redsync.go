@@ -1,6 +1,10 @@
 package redsync
 
-import "time"
+import (
+	"crypto/rand"
+	"encoding/base64"
+	"time"
+)
 
 // Redsync provides a simple method for creating distributed mutexes using multiple Redis connection pools.
 type Redsync struct {
@@ -16,6 +20,14 @@ func New(pools []Pool) *Redsync {
 
 func defaultDelayFunc(tries int) time.Duration {
 	return 500 * time.Millisecond
+}
+
+func genValue() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(b), nil
 }
 
 // NewMutex returns a new distributed mutex with given name.
