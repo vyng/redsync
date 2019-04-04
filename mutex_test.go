@@ -1,6 +1,7 @@
 package redsync
 
 import (
+	"github.com/stretchr/testify/assert"
 	"strconv"
 	"testing"
 	"time"
@@ -16,13 +17,10 @@ func TestMutex(t *testing.T) {
 	for i, mutex := range mutexes {
 		go func(i int, mutex *Mutex) {
 			err := mutex.Lock()
-			if err != nil {
-				t.Fatalf("Expected err == nil, got %q", err)
-			}
 			defer mutex.Unlock()
+			assert.NoError(t, err, "Mutex errored during locking")
 
 			assertAcquired(t, pools, mutex)
-
 			orderCh <- i
 		}(i, mutex)
 	}
@@ -37,23 +35,19 @@ func TestMutexExtend(t *testing.T) {
 	mutex := mutexes[0]
 
 	err := mutex.Lock()
-	if err != nil {
-		t.Fatalf("Expected err == nil, got %q", err)
-	}
 	defer mutex.Unlock()
+	assert.NoError(t, err, "Mutex errored during locking")
 
 	time.Sleep(1 * time.Second)
 
 	expiries := getPoolExpiries(pools, mutex.name)
 	ok := mutex.Extend()
-	if !ok {
-		t.Fatalf("Expected ok == true, got %v", ok)
-	}
+	assert.Equal(t, ok, true, "Expected ok to be true")
 	expiries2 := getPoolExpiries(pools, mutex.name)
 
 	for i, expiry := range expiries {
 		if expiry >= expiries2[i] {
-			t.Fatalf("Expected expiries[%d] > expiry, got %d %d", i, expiries2[i], expiry)
+			assert.Equalf(t, expiry > expiries2[i], true, "Expected expiries[%d] > expiry, got %d %d", i, expiries2[i], expiry)
 		}
 	}
 }
@@ -69,15 +63,11 @@ func TestMutexQuorum(t *testing.T) {
 
 		if n >= len(pools) / 2 + 1 {
 			err := mutex.Lock()
-			if err != nil {
-				t.Fatalf("Expected err == nil, got %q", err)
-			}
+			assert.NoError(t, err, "Mutex errored during locking")
 			assertAcquired(t, pools, mutex)
 		} else {
 			err := mutex.Lock()
-			if err != ErrFailed {
-				t.Fatalf("Expected err == %q, got %q", ErrFailed, err)
-			}
+			assert.Equalf(t, err != nil && err != ErrFailed, false, "Mutex lock failed to be acquired with err %q", err)
 		}
 	}
 }

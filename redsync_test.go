@@ -1,6 +1,7 @@
 package redsync
 
 import (
+	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
 
@@ -19,7 +20,9 @@ func TestMain(m *testing.M) {
 	}
 	result := m.Run()
 	for _, server := range servers {
-		server.Term()
+		if err := server.Term(); err != nil {
+			panic("Testing server errored during termination")
+		}
 	}
 	os.Exit(result)
 }
@@ -31,7 +34,7 @@ func TestRedsync(t *testing.T) {
 	mutex := rs.NewMutex("test-redsync")
 	err := mutex.Lock()
 	if err != nil {
-
+		assert.Error(t, err, "Mutex errored during Redsync test", err)
 	}
 
 	assertAcquired(t, pools, mutex)
