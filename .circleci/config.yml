@@ -6,7 +6,6 @@ jobs: # basic units of work in a run
     docker: # run the steps with Docker
       # CircleCI Go images available at: https://hub.docker.com/r/circleci/golang/
       - image: circleci/golang:1.12.1
-      - image: redis
 
     parallelism: 2
 
@@ -20,6 +19,10 @@ jobs: # basic units of work in a run
       - restore_cache: # restores saved cache if no changes are detected since last run
           keys:
             - go-mod-v4-{{ checksum "go.sum" }}
+
+      - run:
+          name: install redis
+          command: sudo apt-get install redis-server
 
       - run:
           name: Run unit tests
