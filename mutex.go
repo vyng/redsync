@@ -78,6 +78,7 @@ func (m *Mutex) Extend() bool {
 	}) >= m.quorum
 
 }
+
 func (m *Mutex) acquire(pool Pool, value string) bool {
 	conn := pool.Get()
 	defer conn.Close()

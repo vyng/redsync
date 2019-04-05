@@ -11,7 +11,7 @@ import (
 )
 
 func TestMutex(t *testing.T) {
-	pools := newMockPools(8)
+	pools := newMockPools(8, servers)
 	mutexes := newTestMutexes(pools, "test-mutex", 8)
 	orderCh := make(chan int)
 	for i, mutex := range mutexes {
@@ -30,7 +30,7 @@ func TestMutex(t *testing.T) {
 }
 
 func TestMutexExtend(t *testing.T) {
-	pools := newMockPools(8)
+	pools := newMockPools(8, servers)
 	mutexes := newTestMutexes(pools, "test-mutex-extend", 1)
 	mutex := mutexes[0]
 
@@ -53,7 +53,7 @@ func TestMutexExtend(t *testing.T) {
 }
 
 func TestMutexQuorum(t *testing.T) {
-	pools := newMockPools(4)
+	pools := newMockPools(4, servers)
 	for mask := 0; mask < 1<<uint(len(pools)); mask++ {
 		mutexes := newTestMutexes(pools, "test-mutex-partial-"+strconv.Itoa(mask), 1)
 		mutex := mutexes[0]
@@ -67,12 +67,48 @@ func TestMutexQuorum(t *testing.T) {
 			assertAcquired(t, pools, mutex)
 		} else {
 			err := mutex.Lock()
-			assert.Equalf(t, err != nil && err != ErrFailed, false, "Mutex lock failed to be acquired with err %q", err)
+			if err != ErrFailed {
+				t.Fatalf("Expected err == %q, got %q", ErrFailed, err)
+			}
 		}
 	}
 }
 
-func newMockPools(n int) []Pool {
+func TestMutexFailure(t *testing.T) {
+	var servers []*tempredis.Server
+	for i := 0; i < 8; i++ {
+		server, err := tempredis.Start(tempredis.Config{})
+		if err != nil {
+			panic(err)
+		}
+		servers = append(servers, server)
+	}
+	servers[2].Term()
+	servers[6].Term()
+
+	pools := newMockPools(8, servers)
+
+	okayPools := []Pool{}
+	for i, v := range pools {
+		if i == 2 || i == 6 {
+			continue
+		}
+		okayPools = append(okayPools, v)
+	}
+
+	mutexes := newTestMutexes(pools, "test-mutex-extend", 1)
+	mutex := mutexes[0]
+
+	err := mutex.Lock()
+	if err != nil {
+		t.Fatalf("Expected err == nil, got %q", err)
+	}
+	defer mutex.Unlock()
+
+	assertAcquired(t, okayPools, mutex)
+}
+
+func newMockPools(n int, servers []*tempredis.Server) []Pool {
 	var pools []Pool
 	for _, server := range servers {
 		func(server *tempredis.Server) {
