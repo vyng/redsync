@@ -17,8 +17,8 @@ func TestMutex(t *testing.T) {
 	for i, mutex := range mutexes {
 		go func(i int, mutex *Mutex) {
 			err := mutex.Lock()
-			defer mutex.Unlock()
 			assert.NoError(t, err, "Mutex errored during locking")
+			defer mutex.Unlock()
 
 			assertAcquired(t, pools, mutex)
 			orderCh <- i
@@ -35,8 +35,8 @@ func TestMutexExtend(t *testing.T) {
 	mutex := mutexes[0]
 
 	err := mutex.Lock()
-	defer mutex.Unlock()
 	assert.NoError(t, err, "Mutex errored during locking")
+	defer mutex.Unlock()
 
 	time.Sleep(1 * time.Second)
 
