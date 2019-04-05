@@ -33,9 +33,7 @@ func TestRedsync(t *testing.T) {
 
 	mutex := rs.NewMutex("test-redsync")
 	err := mutex.Lock()
-	if err != nil {
-		assert.Error(t, err, "Mutex errored during Redsync test", err)
-	}
+	assert.NoError(t, err, "Mutex errored during locking")
 
 	assertAcquired(t, pools, mutex)
 }

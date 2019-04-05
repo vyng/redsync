@@ -67,7 +67,7 @@ func TestMutexQuorum(t *testing.T) {
 			assertAcquired(t, pools, mutex)
 		} else {
 			err := mutex.Lock()
-			assert.NoError(t, err, "Mutex errored during locking")
+			assert.EqualErrorf(t, err, ErrFailed.Error(), "Mutex should have errored with %q", ErrFailed)
 		}
 	}
 }
@@ -203,5 +203,5 @@ func assertAcquired(t *testing.T, pools []Pool, mutex *Mutex) {
 		}
 	}
 
-	assert.Equalf(t, n < mutex.quorum, true, "Expected quorum of %d, but got %d", mutex.quorum, n)
+	assert.Equalf(t, n >= mutex.quorum, true, "Expected quorum of %d, but got %d", mutex.quorum, n)
 }
