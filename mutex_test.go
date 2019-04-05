@@ -67,9 +67,7 @@ func TestMutexQuorum(t *testing.T) {
 			assertAcquired(t, pools, mutex)
 		} else {
 			err := mutex.Lock()
-			if err != ErrFailed {
-				t.Fatalf("Expected err == %q, got %q", ErrFailed, err)
-			}
+			assert.NoError(t, err, "Mutex errored during locking")
 		}
 	}
 }
@@ -83,8 +81,13 @@ func TestMutexFailure(t *testing.T) {
 		}
 		servers = append(servers, server)
 	}
-	servers[2].Term()
-	servers[6].Term()
+
+	if err :=servers[2].Term(); err != nil {
+		assert.NoError(t, err, "Server 2 had an error terminating")
+	}
+	if err :=servers[6].Term(); err != nil {
+		assert.NoError(t, err, "Server 6 had an error terminating")
+	}
 
 	pools := newMockPools(8, servers)
 
@@ -100,9 +103,7 @@ func TestMutexFailure(t *testing.T) {
 	mutex := mutexes[0]
 
 	err := mutex.Lock()
-	if err != nil {
-		t.Fatalf("Expected err == nil, got %q", err)
-	}
+	assert.NoError(t, err, "Mutex errored during locking")
 	defer mutex.Unlock()
 
 	assertAcquired(t, okayPools, mutex)
@@ -201,7 +202,6 @@ func assertAcquired(t *testing.T, pools []Pool, mutex *Mutex) {
 			n++
 		}
 	}
-	if n < mutex.quorum {
-		t.Fatalf("Expected n >= %d, got %d", mutex.quorum, n)
-	}
+
+	assert.Equalf(t, n < mutex.quorum, true, "Expected quorum of %d, but got %d", mutex.quorum, n)
 }
