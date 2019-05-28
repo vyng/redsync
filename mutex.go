@@ -47,7 +47,7 @@ func (m *Mutex) Lock() error {
 		})
 
 		end := time.Now()
-		drift := time.Duration(int64(float64(m.expiry) * m.factor)) + 2
+		drift := time.Duration(int64(float64(m.expiry) * m.factor))
 		validTime := m.expiry - end.Sub(start) - drift
 
 		if n >= m.quorum && validTime > 0 {
@@ -99,7 +99,7 @@ var deleteScript = redis.NewScript(1, `
 func (m *Mutex) release(pool Pool, value string) bool {
 	conn := pool.Get()
 	defer conn.Close()
-	status, err := deleteScript.Do(conn, m.name, value)
+	status, err := redis.Int64(deleteScript.Do(conn, m.name, value))
 	return err == nil && status != 0
 }
 
@@ -114,7 +114,7 @@ var touchScript = redis.NewScript(1, `
 func (m *Mutex) touch(pool Pool, value string, expiry int64) bool {
 	conn := pool.Get()
 	defer conn.Close()
-	status, err := touchScript.Do(conn, m.name, value, expiry)
+	status, err := redis.Int64(touchScript.Do(conn, m.name, value, expiry))
 	return err == nil && status != 0
 }
 
